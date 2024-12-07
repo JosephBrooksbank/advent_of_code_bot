@@ -49,7 +49,6 @@ def get_days_completed(user_id):
             for day  in completion_day_level:
                 days.append(f"day-{day}")
 
-    days.append("test")
     return days
 
 class Tests(unittest.TestCase):
