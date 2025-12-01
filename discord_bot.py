@@ -6,6 +6,14 @@ import os
 import sqlite
 import aoc_leaderboard
 
+
+### 2025 Changes TODO
+# - refresh automatically once an hour
+# - add a command to register someone else to the leaderboard, discord user id + aoc username
+# - add a command to remove all roles
+# - add an 'archive' command that moves all existing channels to a new archive category and removes all roles from users
+# - sync all users when anyone syncs rather than just the person who called the command
+
 load_dotenv()
 
 intents = discord.Intents.default()
@@ -63,12 +71,12 @@ async def add_roles(user: Member, roles):
         server_role = await get_role_by_name(role)
         await user.add_roles(server_role)
 
-async def sync_user(interaction, aoc_userId, leaderboard):
+async def sync_user(user: User, aoc_userId, leaderboard):
     for member in leaderboard["members"]:
         if member == aoc_userId:
             days_completed = aoc_leaderboard.get_days_completed(member)
-            missing_roles = await get_missing_roles(interaction.user, days_completed)
-            await add_roles(interaction.user, missing_roles)
+            missing_roles = await get_missing_roles(user, days_completed)
+            await add_roles(user, missing_roles)
             break
 
 
@@ -80,7 +88,7 @@ async def sync(interaction: discord.Interaction):
         await interaction.message.send_message("Failed to get leaderboard, likely due to invalid session cookie in bot", ephemeral=True)
     user = db.get_discord_user(interaction.user.id)
     if user:
-        await sync_user(interaction, user[0], leaderboard)
+        await sync_user(interaction.user, user[0], leaderboard)
         await interaction.response.send_message("Synced!", ephemeral=True)
     else:
         await interaction.response.send_message("You are not registered, use /register", ephemeral=True)
@@ -97,7 +105,7 @@ async def register(interaction: discord.Interaction, username: str):
 
         if leaderboard["members"][member]["name"].strip() == username:
             db.insert_user(interaction.user.id, member, username)
-            await sync_user(interaction, member, leaderboard)
+            await sync_user(interaction.user, member, leaderboard)
 
             await interaction.response.send_message(
                 f"Registered {username} as AoC username for {interaction.user.name}", ephemeral=True)
@@ -105,6 +113,27 @@ async def register(interaction: discord.Interaction, username: str):
     else:
         print(leaderboard)
         await interaction.response.send_message(f"Could not find user {username} in leaderboard", ephemeral=True)
+
+@bot.tree.command(name="register_other")
+@app_commands.describe(discord_user = "The Discord user to register", aoc_username = "Enter the name you see in the top right of advent of code")
+async def register_other(interaction: discord.Interaction, discord_user: User, aoc_username: str):
+    aoc_username = aoc_username.strip()
+    db = sqlite.Sqlite()
+    leaderboard = aoc_leaderboard.refresh_leaderboard()
+    if not leaderboard:
+        await interaction.message.send_message("Failed to get leaderboard, likely due to invalid session cookie in bot", ephemeral=True)
+    for member in leaderboard["members"]:
+
+        if leaderboard["members"][member]["name"].strip() == aoc_username:
+            db.insert_user(discord_user.id, member, aoc_username)
+            await sync_user(discord_user, member, leaderboard)
+
+            await interaction.response.send_message(
+                f"Registered {aoc_username} as AoC username for {discord_user.name}", ephemeral=True)
+            break
+    else:
+        print(leaderboard)
+        await interaction.response.send_message(f"Could not find user {aoc_username} in leaderboard", ephemeral=True)
 
 
 def run():
