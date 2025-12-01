@@ -13,6 +13,7 @@ intents.messages = True
 intents.message_content = True
 intents.guilds = True
 intents.members = True
+year = "2025"
 bot = commands.Bot(command_prefix='$', intents=intents)
 
 
@@ -55,7 +56,7 @@ async def add_channel_for_role(role):
         guild.me: discord.PermissionOverwrite(read_messages=True),
         role: discord.PermissionOverwrite(read_messages=True)
     }
-    return await guild.create_text_channel(role.name + "-solution", overwrites=overwrites, category=guild.categories[1])
+    return await guild.create_text_channel(role.name + "-solution-" + year, overwrites=overwrites, category=guild.categories[1])
 
 async def add_roles(user: Member, roles):
     for role in roles:
